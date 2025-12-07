@@ -172,6 +172,7 @@ def test_login_command_success(temp_config_dir):
     with patch('jira_reporter.cli.JiraOAuthFlow') as mock_oauth:
         mock_instance = MagicMock()
         mock_instance.perform_oauth_dance.return_value = ('access-token', 'access-secret')
+        mock_instance.private_key = "test-private-key-content"  # Mock the private_key attribute
         mock_oauth.return_value = mock_instance
         
         result = runner.invoke(main, [

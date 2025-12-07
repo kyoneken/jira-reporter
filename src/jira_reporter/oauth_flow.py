@@ -27,7 +27,7 @@ class JiraOAuthFlow:
         
         # Load private key
         if Path(private_key).exists():
-            with open(private_key, 'r') as f:
+            with open(private_key, 'r', encoding='utf-8') as f:
                 self.private_key = f.read()
         else:
             self.private_key = private_key

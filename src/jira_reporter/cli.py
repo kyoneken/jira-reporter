@@ -2,6 +2,7 @@
 
 import click
 from datetime import datetime
+from pathlib import Path
 from typing import List
 from .config import Config
 from .jira_client import JiraClient
@@ -24,7 +25,7 @@ def main():
 def login(jira_url, consumer_key, private_key, no_browser):
     """Authenticate with Jira using OAuth (interactive web-based flow)."""
     try:
-        # Initialize OAuth flow
+        # Initialize OAuth flow (this will load the private key)
         oauth_flow = JiraOAuthFlow(jira_url, consumer_key, private_key)
         
         # Perform OAuth dance
@@ -32,19 +33,10 @@ def login(jira_url, consumer_key, private_key, no_browser):
             auto_open_browser=not no_browser
         )
         
-        # Load private key for storage
-        from pathlib import Path
-        key_path = Path(private_key)
-        if key_path.exists():
-            with open(key_path, 'r') as f:
-                key_cert = f.read()
-        else:
-            key_cert = private_key
-        
-        # Save configuration
+        # Save configuration (reuse the loaded private key from oauth_flow)
         config = Config()
         config.set_jira_url(jira_url)
-        config.set_oauth_config(consumer_key, key_cert, access_token, access_token_secret)
+        config.set_oauth_config(consumer_key, oauth_flow.private_key, access_token, access_token_secret)
         config.save()
         
         click.echo("✓ Authentication successful!")
@@ -71,10 +63,9 @@ def configure(jira_url, consumer_key, key_cert, access_token, access_token_secre
     
     # Check if key_cert is a file path
     try:
-        from pathlib import Path
         key_path = Path(key_cert)
         if key_path.exists():
-            with open(key_path, 'r') as f:
+            with open(key_path, 'r', encoding='utf-8') as f:
                 key_cert = f.read()
     except (OSError, IOError, UnicodeDecodeError) as e:
         # If file reading fails, assume it's the actual certificate content
