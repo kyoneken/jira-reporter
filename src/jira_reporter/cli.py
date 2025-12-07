@@ -6,6 +6,7 @@ from typing import List
 from .config import Config
 from .jira_client import JiraClient
 from .formatters import get_formatter
+from .oauth_flow import JiraOAuthFlow
 
 
 @click.group()
@@ -18,11 +19,54 @@ def main():
 @main.command()
 @click.option('--jira-url', required=True, help='Jira base URL (e.g., https://jira.example.com)')
 @click.option('--consumer-key', required=True, help='OAuth consumer key')
+@click.option('--private-key', required=True, help='Path to RSA private key file (PEM format)')
+@click.option('--no-browser', is_flag=True, help='Do not automatically open browser')
+def login(jira_url, consumer_key, private_key, no_browser):
+    """Authenticate with Jira using OAuth (interactive web-based flow)."""
+    try:
+        # Initialize OAuth flow
+        oauth_flow = JiraOAuthFlow(jira_url, consumer_key, private_key)
+        
+        # Perform OAuth dance
+        access_token, access_token_secret = oauth_flow.perform_oauth_dance(
+            auto_open_browser=not no_browser
+        )
+        
+        # Load private key for storage
+        from pathlib import Path
+        key_path = Path(private_key)
+        if key_path.exists():
+            with open(key_path, 'r') as f:
+                key_cert = f.read()
+        else:
+            key_cert = private_key
+        
+        # Save configuration
+        config = Config()
+        config.set_jira_url(jira_url)
+        config.set_oauth_config(consumer_key, key_cert, access_token, access_token_secret)
+        config.save()
+        
+        click.echo("✓ Authentication successful!")
+        click.echo(f"✓ Configuration saved to: {Config.CONFIG_FILE}")
+        click.echo("\nYou can now use 'jira-reporter report' to fetch work logs.")
+        
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        return
+    except Exception as e:
+        click.echo(f"Unexpected error during authentication: {e}", err=True)
+        return
+
+
+@main.command()
+@click.option('--jira-url', required=True, help='Jira base URL (e.g., https://jira.example.com)')
+@click.option('--consumer-key', required=True, help='OAuth consumer key')
 @click.option('--key-cert', required=True, help='OAuth key certificate (private key content or path to file)')
 @click.option('--access-token', required=True, help='OAuth access token')
 @click.option('--access-token-secret', required=True, help='OAuth access token secret')
 def configure(jira_url, consumer_key, key_cert, access_token, access_token_secret):
-    """Configure Jira Reporter with OAuth credentials."""
+    """Configure Jira Reporter with OAuth credentials (manual configuration)."""
     config = Config()
     
     # Check if key_cert is a file path
@@ -72,7 +116,7 @@ def report(usernames: List[str], start_date: str, end_date: str, output_format: 
         client = JiraClient(config)
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
-        click.echo("\nPlease run 'jira-reporter configure' first to set up your Jira connection.")
+        click.echo("\nPlease run 'jira-reporter login' to authenticate with Jira.")
         return
     except Exception as e:
         click.echo(f"Error initializing Jira client: {e}", err=True)

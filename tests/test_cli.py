@@ -7,6 +7,7 @@ import tempfile
 import shutil
 from pathlib import Path
 from jira_reporter.config import Config
+from unittest.mock import patch, MagicMock
 
 
 @pytest.fixture
@@ -148,3 +149,69 @@ def test_report_command_invalid_dates(temp_config_dir):
     ])
     assert result.exit_code == 0
     assert 'Error' in result.output
+
+
+def test_login_command_help():
+    """Test login command help."""
+    runner = CliRunner()
+    result = runner.invoke(main, ['login', '--help'])
+    assert result.exit_code == 0
+    assert 'OAuth' in result.output
+    assert 'interactive' in result.output.lower()
+
+
+def test_login_command_success(temp_config_dir):
+    """Test successful login command."""
+    runner = CliRunner()
+    
+    # Create a temporary private key file
+    temp_key_file = temp_config_dir / "test_key.pem"
+    temp_key_file.write_text("test-private-key-content")
+    
+    # Mock the OAuth flow
+    with patch('jira_reporter.cli.JiraOAuthFlow') as mock_oauth:
+        mock_instance = MagicMock()
+        mock_instance.perform_oauth_dance.return_value = ('access-token', 'access-secret')
+        mock_oauth.return_value = mock_instance
+        
+        result = runner.invoke(main, [
+            'login',
+            '--jira-url', 'https://jira.example.com',
+            '--consumer-key', 'test-key',
+            '--private-key', str(temp_key_file),
+            '--no-browser'
+        ])
+        
+        assert result.exit_code == 0
+        assert 'Authentication successful' in result.output
+        
+        # Verify config was saved
+        config = Config()
+        assert config.get_jira_url() == 'https://jira.example.com'
+        oauth = config.get_oauth_config()
+        assert oauth['consumer_key'] == 'test-key'
+        assert oauth['access_token'] == 'access-token'
+        assert oauth['access_token_secret'] == 'access-secret'
+
+
+def test_login_command_failure(temp_config_dir):
+    """Test login command failure."""
+    runner = CliRunner()
+    
+    # Mock the OAuth flow to raise an error
+    with patch('jira_reporter.cli.JiraOAuthFlow') as mock_oauth:
+        mock_instance = MagicMock()
+        mock_instance.perform_oauth_dance.side_effect = ValueError("Authentication failed")
+        mock_oauth.return_value = mock_instance
+        
+        result = runner.invoke(main, [
+            'login',
+            '--jira-url', 'https://jira.example.com',
+            '--consumer-key', 'test-key',
+            '--private-key', 'test-key.pem',
+            '--no-browser'
+        ])
+        
+        assert result.exit_code == 0
+        assert 'Error' in result.output
+

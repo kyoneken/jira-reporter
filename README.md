@@ -50,17 +50,54 @@ uv pip install .
 
 ## Configuration
 
-Before using Jira Reporter, you need to configure it with your Jira OAuth credentials.
+Before using Jira Reporter, you need to authenticate with Jira using OAuth.
 
 ### Setting up OAuth in Jira
 
-1. Generate an RSA key pair for OAuth
-2. Configure an Application Link in Jira with OAuth
-3. Obtain OAuth access tokens
+1. Generate an RSA key pair for OAuth:
+   ```bash
+   openssl genrsa -out jira_privatekey.pem 1024
+   openssl req -newkey rsa:1024 -x509 -key jira_privatekey.pem -out jira_publickey.cer -days 365
+   openssl pkcs8 -topk8 -nocrypt -in jira_privatekey.pem -out jira_privatekey.pcks8
+   openssl x509 -pubkey -noout -in jira_publickey.cer > jira_publickey.pem
+   ```
+
+2. Configure an Application Link in Jira:
+   - Go to Jira Administration → Application Links
+   - Create a new Application Link
+   - Configure OAuth settings with your generated public key
 
 For detailed instructions, see [Jira OAuth documentation](https://developer.atlassian.com/server/jira/platform/oauth/).
 
-### Configure the Tool
+### Option 1: Interactive Login (Recommended)
+
+Use the interactive `login` command that opens your browser for authentication:
+
+```bash
+uv run jira-reporter login \
+  --jira-url "https://jira.example.com" \
+  --consumer-key "your-consumer-key" \
+  --private-key "path/to/jira_privatekey.pem"
+```
+
+This will:
+1. Open your browser to Jira's authorization page
+2. Ask you to authorize the application
+3. Prompt you to enter the verification code
+4. Automatically save the access tokens
+
+If you don't want the browser to open automatically:
+```bash
+uv run jira-reporter login \
+  --jira-url "https://jira.example.com" \
+  --consumer-key "your-consumer-key" \
+  --private-key "path/to/jira_privatekey.pem" \
+  --no-browser
+```
+
+### Option 2: Manual Configuration
+
+If you already have OAuth tokens, you can configure them manually:
 
 ```bash
 uv run jira-reporter configure \
