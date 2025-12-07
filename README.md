@@ -18,7 +18,7 @@ A CLI tool to fetch and report Jira work logs using OAuth authentication.
 
 ## Requirements
 
-- Python 3.12+
+- Python 3.10+
 - uv (Python package manager)
 - Jira instance with OAuth configured
 

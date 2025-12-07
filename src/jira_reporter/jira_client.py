@@ -1,7 +1,7 @@
 """Jira API client with OAuth authentication."""
 
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 from jira import JIRA
 from jira.exceptions import JIRAError
 from .config import Config

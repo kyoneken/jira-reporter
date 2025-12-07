@@ -1,7 +1,7 @@
 """Command-line interface for Jira Reporter."""
 
 import click
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List
 from .config import Config
 from .jira_client import JiraClient
@@ -32,8 +32,9 @@ def configure(jira_url, consumer_key, key_cert, access_token, access_token_secre
         if key_path.exists():
             with open(key_path, 'r') as f:
                 key_cert = f.read()
-    except Exception:
-        pass  # Assume it's the actual certificate content
+    except (OSError, IOError, UnicodeDecodeError) as e:
+        # If file reading fails, assume it's the actual certificate content
+        pass
     
     config.set_jira_url(jira_url)
     config.set_oauth_config(consumer_key, key_cert, access_token, access_token_secret)
